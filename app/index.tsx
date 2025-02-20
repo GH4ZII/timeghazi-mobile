@@ -1,8 +1,8 @@
 // 📌 Importerer ting vi trenger fra React
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Button, FlatList, Text, View } from "react-native"; // 📌 Lager appens utseende
+import { ActivityIndicator, Button, FlatList, Text, View } from "react-native"; // 📌 UI-komponenter
 import { registerRootComponent } from "expo"; // 📌 Expo trenger dette for å starte appen
-import { fetchShifts, Shift } from "@/api"; // 📌 Henter skift fra backend (viktig!)
+import { fetchShifts, Shift } from "@/api"; // 📌 Henter skift fra backend
 import AsyncStorage from "@react-native-async-storage/async-storage"; // 🔐 Lagrer token for å sjekke om brukeren er innlogget
 import { useRouter } from "expo-router"; // 📌 Brukes for å navigere mellom sider
 import { HubConnection, HubConnectionBuilder, HttpTransportType } from "@microsoft/signalr"; // 📡 SignalR for sanntidsoppdateringer
@@ -11,19 +11,17 @@ import { HubConnection, HubConnectionBuilder, HttpTransportType } from "@microso
 const App: React.FC = () => {
     // 🔹 Lagrer skift (arbeidstider) i en liste
     const [shifts, setShifts] = useState<Shift[]>([]);
-
     // 🔹 Sjekker om brukeren er logget inn (null betyr at vi fortsatt sjekker)
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
     // 🔹 Brukes for å navigere til forskjellige sider
     const router = useRouter();
-
     // 🔹 Holder på SignalR-tilkoblingen for sanntidsoppdateringer
     const [connection, setConnection] = useState<HubConnection | null>(null);
 
     // **1️⃣ Sjekker om brukeren er logget inn**
     useEffect(() => {
         const checkAuth = async () => {
+
             const token = await AsyncStorage.getItem("token"); // 🔐 Hent token fra lagring
             if (!token) {
                 router.replace("/login"); // ❌ Hvis ingen token, send til login-siden
@@ -39,7 +37,9 @@ const App: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                console.log("📡 Henter skift fra backend...");
                 const data = await fetchShifts(); // 📡 Hent skift fra serveren
+                console.log("✅ Skift hentet:", data);
                 setShifts(data); // 🔄 Lagre skiftene i `shifts`-listen
             } catch (error) {
                 console.error("❌ Feil ved henting av skift:", error);
@@ -57,8 +57,7 @@ const App: React.FC = () => {
                 const newConnection = new HubConnectionBuilder()
                     .withUrl("http://10.0.2.2:5026/shiftHub", { // 📡 Koble til serveren
                         skipNegotiation: true, // 🔹 Hopp over forhandling (bruk WebSockets direkte)
-                        transport: HttpTransportType.WebSockets, // 📡 Bruk WebSockets for rask kommunikasjon
-                        withCredentials: true // 🔐 Sender også innloggingsdata
+                        transport: HttpTransportType.WebSockets // 📡 Bruk WebSockets for rask kommunikasjon
                     })
                     .withAutomaticReconnect() // 🔄 Prøv å koble til på nytt hvis det feiler
                     .build();
@@ -73,13 +72,20 @@ const App: React.FC = () => {
 
                 // 🔄 Når serveren sender en oppdatering, hent nye skift
                 newConnection.on("ReceiveShiftUpdate", async (message) => {
-                    console.log("🔄 Sanntidsoppdatering mottatt:", message);
-                    const updatedShifts = await fetchShifts(); // 📡 Hent oppdaterte skift
-                    setShifts(updatedShifts); // 🔄 Oppdater listen
+                    console.log("🔄 SANNTIDSOPPDATERING MOTTATT:", message);
+                    const updatedShifts = await fetchShifts();
+                    setShifts(updatedShifts);
                 });
 
                 await newConnection.start(); // 🚀 Start tilkoblingen!
                 console.log("✅ WebSocket connected!");
+
+                // 🔥 **Hent employeeId og bli med i riktig gruppe**
+                const storedEmployeeId = await AsyncStorage.getItem("employeeId");
+                if (storedEmployeeId) {
+                    console.log(`📡 Kaller JoinShiftGroup med EmployeeId: ${storedEmployeeId}`);
+                    await newConnection.invoke("JoinShiftGroup", storedEmployeeId);
+                }
 
             } catch (error) {
                 console.error("❌ SignalR-feil:", error);
@@ -89,7 +95,9 @@ const App: React.FC = () => {
         setupSignalR(); // 🚀 Start SignalR
 
         return () => {
-            connection?.stop(); // ❌ Hvis komponenten fjernes, stopp tilkoblingen
+            if (connection) {
+                connection.stop(); // ❌ Hvis komponenten fjernes, stopp tilkoblingen
+            }
         };
     }, []); // ✅ Kjør bare én gang når appen starter
 
