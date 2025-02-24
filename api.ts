@@ -2,7 +2,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"; // 🔐 Lagrer token og employeeId
 
 // 📌 Bytt ut med riktig backend-URL
-const API_BASE_URL = "https://timeghazi.azurewebsites.net/api";
+const API_BASE_URL = "https://timeghazi-chephuash3ekdyd6.westeurope-01.azurewebsites.net/api";
+
 
 
 // 📌 Definerer grensesnittet (interface) for et skift
