@@ -1,12 +1,10 @@
 ﻿import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // 🔐 Lagrer token og employeeId
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// 📌 Bytt ut med riktig backend-URL
-const API_BASE_URL = "https://timeghazi-chephuash3ekdyd6.westeurope-01.azurewebsites.net/api";
+// Automatisk velg backend-URL basert på miljø
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://10.0.2.2:5026/api";
 
-
-
-// 📌 Definerer grensesnittet (interface) for et skift
+// 📌 Shift-modellen (hold den uendret)
 export interface Shift {
     id: number;
     employeeId: number;
@@ -15,10 +13,10 @@ export interface Shift {
     isApproved: boolean;
 }
 
-// 🔹 Hent kun skift for innlogget ansatt
+// 🔹 Hent skift for innlogget ansatt
 export const fetchShifts = async (): Promise<Shift[]> => {
     try {
-        const employeeId = await AsyncStorage.getItem("employeeId"); // 🔥 Hent ansattens ID
+        const employeeId = await AsyncStorage.getItem("employeeId");
         if (!employeeId) {
             console.error("❌ Ingen employeeId funnet i AsyncStorage!");
             return [];
@@ -33,13 +31,13 @@ export const fetchShifts = async (): Promise<Shift[]> => {
     }
 };
 
-// 📌 Logger inn brukeren, lagrer token OG employeeId
+// 📌 Login - ingen endring nødvendig
 export const loginUser = async (email: string, password: string) => {
     try {
         console.log("📡 Sender innloggingsforespørsel...");
         const response = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
 
-        console.log("🔍 Respons fra server:", response.data); // ✅ Logger hele responsen
+        console.log("🔍 Respons fra server:", response.data);
 
         if (response.status === 200) {
             const { token, employeeId } = response.data;
@@ -49,14 +47,10 @@ export const loginUser = async (email: string, password: string) => {
                 return false;
             }
 
-            console.log("✅ Lagrer employeeId:", employeeId);
             await AsyncStorage.setItem("token", token);
             await AsyncStorage.setItem("employeeId", employeeId.toString());
 
-            // 📌 Sjekker om `employeeId` er lagret riktig
-            const storedEmployeeId = await AsyncStorage.getItem("employeeId");
-            console.log("🔍 Bekreftelse: Lagret employeeId:", storedEmployeeId);
-
+            console.log("✅ Login lagret employeeId:", employeeId);
             return true;
         } else {
             console.error("❌ Innlogging feilet:", response.data);
@@ -68,10 +62,9 @@ export const loginUser = async (email: string, password: string) => {
     }
 };
 
-
-// 📌 Logger ut brukeren
+// 📌 Logout
 export const logoutUser = async () => {
-    await AsyncStorage.removeItem("token"); // ❌ Fjern token
-    await AsyncStorage.removeItem("employeeId"); // ❌ Fjern employeeId
+    await AsyncStorage.removeItem("token");
+    await AsyncStorage.removeItem("employeeId");
     console.log("🚪 Brukeren er logget ut!");
 };
